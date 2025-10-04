@@ -1,12 +1,13 @@
 import express from "express"
 import multer from "multer"
 import fs from "fs"
-import path from "path"
-import { connectToWhatsApp, sendText, sendMessage, disconnect } from "../services/whatsapp.js"
+import { connectToWhatsApp, sendText, sendMessage, disconnect, getStatus } from "../services/whatsapp.js"
 import { authMiddleware } from "../middlewares/auth.js"
 
 const router = express.Router()
 const upload = multer({ dest: "uploads/" })
+
+router.get("/", (req, res) => res.send("WA Gateway API running ✅"))
 
 // connect -> menghasilkan qr
 router.post("/connect/:id", authMiddleware, async (req, res) => {
@@ -29,6 +30,7 @@ router.post("/send-text/:id", authMiddleware, async (req, res) => {
   }
 })
 
+// send message with file
 router.post("/send-message/:id", authMiddleware, upload.single("file"), async (req, res) => {
   try {
     const { to, message } = req.body
@@ -37,9 +39,9 @@ router.post("/send-message/:id", authMiddleware, upload.single("file"), async (r
     if (req.file) {
       const buffer = fs.readFileSync(req.file.path)
       file = {
-        data: buffer,                      // buffer data file
-        mimetype: req.file.mimetype,       // contoh: image/png
-        filename: req.file.originalname    // contoh: foto.png
+        data: buffer,
+        mimetype: req.file.mimetype,
+        filename: req.file.originalname
       }
     }
 
@@ -50,6 +52,15 @@ router.post("/send-message/:id", authMiddleware, upload.single("file"), async (r
   }
 })
 
+// status
+router.get("/status/:id", authMiddleware, (req, res) => {
+  try {
+    const data = getStatus(req.params.id)
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
 
 // disconnect
 router.post("/disconnect/:id", authMiddleware, async (req, res) => {

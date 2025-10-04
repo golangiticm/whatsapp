@@ -25,8 +25,30 @@ export async function connectToWhatsApp(identifier) {
       sessions.set(identifier, client)
     })
 
+    client.on("disconnected", (reason) => {
+      console.log(`❌ Client ${identifier} disconnected: ${reason}`)
+      sessions.delete(identifier)
+    })
+
+    client.on("auth_failure", (msg) => {
+      console.log(`⚠️ Auth failure for ${identifier}: ${msg}`)
+      sessions.delete(identifier)
+    })
+
     client.initialize()
   })
+}
+
+export function getStatus(identifier) {
+  const client = sessions.get(identifier)
+  if (!client) {
+    return { id: identifier, status: "disconnected" }
+  }
+  return {
+    id: identifier,
+    status: client.info ? "connected" : "connecting",
+    info: client.info || null
+  }
 }
 
 export async function sendText(identifier, to, message) {
@@ -40,12 +62,8 @@ export async function sendMessage(identifier, to, message, file) {
   if (!client) throw new Error("Client not connected")
 
   if (file) {
-    // convert buffer ke base64
     const base64Data = file.data.toString("base64")
-
-    // buat media dari base64
     const media = new MessageMedia(file.mimetype, base64Data, file.filename)
-
     return client.sendMessage(to, media, { caption: message })
   }
 
