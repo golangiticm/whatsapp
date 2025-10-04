@@ -1,9 +1,12 @@
 import pkg from "whatsapp-web.js"
 const { Client, LocalAuth, MessageMedia } = pkg
 import qrcode from "qrcode"
+import fs from "fs"
+import path from "path"
 
 const sessions = new Map()
 
+// === CONNECT FUNCTION ===
 export async function connectToWhatsApp(identifier) {
   return new Promise((resolve, reject) => {
     if (sessions.has(identifier)) {
@@ -11,27 +14,33 @@ export async function connectToWhatsApp(identifier) {
     }
 
     const client = new Client({
-      authStrategy: new LocalAuth({ clientId: identifier }),
+      authStrategy: new LocalAuth({
+        clientId: identifier,
+        dataPath: path.join(process.cwd(), "sessions") // simpan semua session di folder sessions/
+      }),
       puppeteer: { headless: true, args: ["--no-sandbox"] }
     })
 
+    // saat generate QR
     client.on("qr", async (qr) => {
       const qrUrl = await qrcode.toDataURL(qr)
       resolve({ id: identifier, qr: qrUrl })
     })
 
+    // saat berhasil login
     client.on("ready", () => {
       console.log(`✅ Client ${identifier} ready`)
       sessions.set(identifier, client)
     })
 
-       // ketika user logout manual dari device
+    // kalau logout manual dari device
     client.on("disconnected", (reason) => {
       console.log(`❌ Client ${identifier} disconnected: ${reason}`)
       cleanupSession(identifier)
       sessions.delete(identifier)
     })
 
+    // kalau gagal auth (biasanya user logout dari device atau session expired)
     client.on("auth_failure", (msg) => {
       console.log(`⚠️ Auth failure ${identifier}: ${msg}`)
       cleanupSession(identifier)
@@ -42,18 +51,13 @@ export async function connectToWhatsApp(identifier) {
   })
 }
 
+// === CLEANUP FUNCTION ===
 function cleanupSession(identifier) {
-  const baseAuth = path.join(process.cwd(), ".wwebjs_auth", `session-${identifier}`)
-  const baseCache = path.join(process.cwd(), ".wwebjs_cache", `session-${identifier}`)
-
+  const sessionPath = path.join(process.cwd(), "sessions", `session-${identifier}`)
   try {
-    if (fs.existsSync(baseAuth)) {
-      fs.rmSync(baseAuth, { recursive: true, force: true, maxRetries: 3 })
-      console.log(`🗑️ Deleted auth folder for ${identifier}`)
-    }
-    if (fs.existsSync(baseCache)) {
-      fs.rmSync(baseCache, { recursive: true, force: true, maxRetries: 3 })
-      console.log(`🗑️ Deleted cache folder for ${identifier}`)
+    if (fs.existsSync(sessionPath)) {
+      fs.rmSync(sessionPath, { recursive: true, force: true })
+      console.log(`🗑️ Deleted session folder for ${identifier}`)
     }
   } catch (err) {
     if (err.code === "EBUSY") {
@@ -64,13 +68,14 @@ function cleanupSession(identifier) {
   }
 }
 
-
+// === SEND TEXT ===
 export async function sendText(identifier, to, message) {
   const client = sessions.get(identifier)
   if (!client) throw new Error("Client not connected")
   return client.sendMessage(to, message)
 }
 
+// === SEND MESSAGE WITH FILE ===
 export async function sendMessage(identifier, to, message, file) {
   const client = sessions.get(identifier)
   if (!client) throw new Error("Client not connected")
@@ -88,10 +93,14 @@ export async function sendMessage(identifier, to, message, file) {
   return client.sendMessage(to, message)
 }
 
+// === DISCONNECT MANUAL ===
 export async function disconnect(identifier) {
   const client = sessions.get(identifier)
   if (!client) throw new Error("Client not connected")
+
   await client.destroy()
+  cleanupSession(identifier)
   sessions.delete(identifier)
+
   return { message: "Disconnected", id: identifier }
 }
