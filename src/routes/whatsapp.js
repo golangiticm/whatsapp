@@ -51,6 +51,8 @@ router.post("/send-message/:id", authMiddleware, upload.single("file"), async (r
 })
 
 
+
+
 // disconnect
 router.post("/disconnect/:id", authMiddleware, async (req, res) => {
   try {
@@ -60,5 +62,8 @@ router.post("/disconnect/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 })
+
+//testing
+router.get('/',async(req, res)=>res.send('WA Gateway API running ✅'))
 
 export default router
