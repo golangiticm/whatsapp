@@ -25,45 +25,9 @@ export async function connectToWhatsApp(identifier) {
       sessions.set(identifier, client)
     })
 
-       // ketika user logout manual dari device
-    client.on("disconnected", (reason) => {
-      console.log(`❌ Client ${identifier} disconnected: ${reason}`)
-      cleanupSession(identifier)
-      sessions.delete(identifier)
-    })
-
-    client.on("auth_failure", (msg) => {
-      console.log(`⚠️ Auth failure ${identifier}: ${msg}`)
-      cleanupSession(identifier)
-      sessions.delete(identifier)
-    })
-
     client.initialize()
   })
 }
-
-function cleanupSession(identifier) {
-  const baseAuth = path.join(process.cwd(), ".wwebjs_auth", `session-${identifier}`)
-  const baseCache = path.join(process.cwd(), ".wwebjs_cache", `session-${identifier}`)
-
-  try {
-    if (fs.existsSync(baseAuth)) {
-      fs.rmSync(baseAuth, { recursive: true, force: true, maxRetries: 3 })
-      console.log(`🗑️ Deleted auth folder for ${identifier}`)
-    }
-    if (fs.existsSync(baseCache)) {
-      fs.rmSync(baseCache, { recursive: true, force: true, maxRetries: 3 })
-      console.log(`🗑️ Deleted cache folder for ${identifier}`)
-    }
-  } catch (err) {
-    if (err.code === "EBUSY") {
-      console.warn(`⚠️ File terkunci (chrome_debug.log) untuk ${identifier}, skip...`)
-    } else {
-      console.error(`Gagal hapus session folder ${identifier}:`, err.message)
-    }
-  }
-}
-
 
 export async function sendText(identifier, to, message) {
   const client = sessions.get(identifier)
