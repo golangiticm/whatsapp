@@ -7,7 +7,6 @@ import { authMiddleware } from "../middlewares/auth.js"
 
 const router = express.Router()
 const upload = multer({ dest: "uploads/" })
-
 // connect -> menghasilkan qr
 router.post("/connect/:id", authMiddleware, async (req, res) => {
   try {
